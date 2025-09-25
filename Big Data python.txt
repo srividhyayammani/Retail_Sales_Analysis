@@ -1,0 +1,298 @@
+Step 1 — Load datasets
+import pandas as pd
+
+# change path if using Google Drive
+train = pd.read_csv("train.csv")
+test = pd.read_csv("test.csv")
+store = pd.read_csv("store.csv")
+
+print("Train:", train.shape)
+print("Test:", test.shape)
+print("Store:", store.shape)
+
+train.head()
+
+
+
+Step 2 — Merge train with store info
+
+Rossmann separates sales data (train) and store metadata (store).
+We need them together.
+
+df = train.merge(store, on="Store", how="left")
+print(df.shape)
+df.head()
+
+Step 3 — Handle dates
+
+Convert Date into useful time features.
+
+df["Date"] = pd.to_datetime(df["Date"])
+df["Year"] = df["Date"].dt.year
+df["Month"] = df["Date"].dt.month
+df["Day"] = df["Date"].dt.day
+df["DayOfWeek"] = df["Date"].dt.dayofweek
+df["WeekOfYear"] = df["Date"].dt.isocalendar().week
+
+
+Step 4 — Basic check
+print(df.info())
+print(df.describe())
+
+
+
+Step 1 — Load the CSV files
+import pandas as pd
+
+train = pd.read_csv("train.csv")
+test = pd.read_csv("test.csv")
+store = pd.read_csv("store.csv")
+
+print("Train:", train.shape)
+print("Test:", test.shape)
+print("Store:", store.shape)
+
+train.head()
+
+
+Step 2 — Merge train with store
+
+Rossmann keeps store info separate, so we join them:
+
+df = train.merge(store, on="Store", how="left")
+print("Merged shape:", df.shape)
+df.head()
+
+
+Step 3 — Convert Date and create time features
+df["Date"] = pd.to_datetime(df["Date"])
+df["Year"] = df["Date"].dt.year
+df["Month"] = df["Date"].dt.month
+df["Day"] = df["Date"].dt.day
+df["DayOfWeek"] = df["Date"].dt.dayofweek
+df["WeekOfYear"] = df["Date"].dt.isocalendar().week
+
+
+
+Step 4 — Quick check
+print(df.info())
+print(df.describe())
+df.head()
+
+
+Phase 2 — Exploratory Data Analysis (EDA)
+1. Total Sales Trend (all stores)
+import matplotlib.pyplot as plt
+
+daily_sales = df.groupby("Date")["Sales"].sum()
+
+plt.figure(figsize=(14,5))
+daily_sales.plot()
+plt.title("Total Daily Sales (All Stores)")
+plt.ylabel("Sales")
+plt.xlabel("Date")
+plt.show()
+
+
+2. Average Sales by Day of Week
+dow = df.groupby("DayOfWeek")["Sales"].mean()
+
+plt.figure(figsize=(6,4))
+dow.plot(kind="bar", color="skyblue")
+plt.title("Average Sales by Day of Week")
+plt.ylabel("Sales")
+plt.xlabel("Day of Week (0=Mon, 6=Sun)")
+plt.show()
+
+
+3. Average Sales by Month
+month_avg = df.groupby("Month")["Sales"].mean()
+
+plt.figure(figsize=(6,4))
+month_avg.plot(kind="bar", color="orange")
+plt.title("Average Sales by Month")
+plt.ylabel("Sales")
+plt.show()
+
+
+4. Promotions Effect
+promo = df.groupby("Promo")["Sales"].mean()
+
+plt.bar(["No Promo","Promo"], promo, color=["red","green"])
+plt.title("Average Sales With/Without Promotion")
+plt.ylabel("Sales")
+plt.show()
+
+5. Top 10 Stores by Average Sales
+store_avg = df.groupby("Store")["Sales"].mean().sort_values(ascending=False).head(10)
+
+plt.figure(figsize=(8,4))
+store_avg.plot(kind="bar", color="purple")
+plt.title("Top 10 Stores by Average Sales")
+plt.ylabel("Sales")
+plt.xlabel("Store ID")
+plt.show()
+
+
+6. Correlation Heatmap
+import seaborn as sns
+
+plt.figure(figsize=(6,4))
+sns.heatmap(df[["Sales","Customers","Promo","CompetitionDistance"]].corr(),
+            annot=True, cmap="Blues")
+plt.title("Correlation Matrix")
+plt.show()
+
+
+Phase 3 — Feature Engineering
+1. Create Lag Features (past sales as predictors)
+# Sort by store + date
+df = df.sort_values(["Store","Date"])
+
+# Create lag features (previous days' sales)
+for lag in [1, 7, 14]:
+    df[f"Sales_lag_{lag}"] = df.groupby("Store")["Sales"].shift(lag)
+
+
+2. Rolling Mean Features (smooth sales trends)
+for window in [7, 30]:
+    df[f"Sales_roll_mean_{window}"] = (
+        df.groupby("Store")["Sales"].shift(1).rolling(window=window).mean()
+    )
+
+
+3. Drop rows with NaN (from lags)
+df_model = df.dropna()
+print(df_model.shape)
+
+
+Phase 4 — Baseline Forecasting Model
+
+We’ll try Random Forest Regressor first (easy & handles categorical + numerical).
+
+1. Define features & target
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+import numpy as np
+
+features = [
+    "Store","Promo","DayOfWeek","Month","Year",
+    "Sales_lag_1","Sales_lag_7","Sales_lag_14",
+    "Sales_roll_mean_7","Sales_roll_mean_30"
+]
+
+X = df_model[features]
+y = df_model["Sales"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, shuffle=False
+)
+
+
+2. Train Random Forest
+rf = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+rf.fit(X_train, y_train)
+
+y_pred = rf.predict(X_test)
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+print("RMSE:", rmse)
+
+3. Feature Importance
+import matplotlib.pyplot as plt
+
+importances = pd.Series(rf.feature_importances_, index=features)
+importances.sort_values().plot(kind="barh", figsize=(8,4))
+plt.title("Feature Importance")
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
